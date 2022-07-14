@@ -11,7 +11,13 @@ object Main extends ZIOAppDefault {
   private val baseUrl = "http://datapoint.metoffice.gov.uk/public/data"
   private val dataType = "json"
 
-  private case class Site(id: String, name: String, latitude: String, longitude: String)
+  private case class Site(
+      id: String,
+      name: String,
+      latitude: String,
+      longitude: String,
+      elevation: String
+  )
   private case class Location(Location: Seq[Site])
   private case class Locations(Locations: Location)
 
@@ -54,10 +60,19 @@ object Main extends ZIOAppDefault {
     )
 
   private def minTemperature(offset: Int)(period: ObsPeriod) = {
-    val x = period.Rep.zipWithIndex.minBy { case (y, _) => y.T.toDouble }
-    val r = LocalDate.parse(period.value.stripSuffix("Z"))
-    val t = LocalTime.of(x._2 + offset, 0)
-    TimeTemperature(OffsetDateTime.of(r, t, ZoneOffset.UTC), x._1.T.toDouble)
+    val x = period.Rep.zipWithIndex.reverse.minBy { case (y, _) => y.T.toDouble }
+    toTimeTemperature(x._1, x._2, period.value, offset)
+  }
+
+  private def maxTemperature(offset: Int)(period: ObsPeriod) = {
+    val x = period.Rep.zipWithIndex.reverse.maxBy { case (y, _) => y.T.toDouble }
+    toTimeTemperature(x._1, x._2, period.value, offset)
+  }
+
+  private def toTimeTemperature(metric: ObsMetric, hour: Int, dateStr: String, offset: Int) = {
+    val r = LocalDate.parse(dateStr.stripSuffix("Z"))
+    val t = LocalTime.of(hour + offset, 0)
+    TimeTemperature(OffsetDateTime.of(r, t, ZoneOffset.UTC), metric.T.toDouble)
   }
 
   private def minTemperature(location: ObsLocation): TimeTemperature = {
@@ -66,7 +81,17 @@ object Main extends ZIOAppDefault {
     val tod = location.Period.last
     val todm = minTemperature(0)(tod)
     val x = Seq(ystm, todm)
-    val y = x.minBy(u => u.temperature)
+    val y = x.reverse.minBy(u => u.temperature)
+    y
+  }
+
+  private def maxTemperature(location: ObsLocation): TimeTemperature = {
+    val yst = location.Period.head
+    val ystm = maxTemperature(24 - yst.Rep.length)(yst)
+    val tod = location.Period.last
+    val todm = maxTemperature(0)(tod)
+    val x = Seq(ystm, todm)
+    val y = x.reverse.maxBy(u => u.temperature)
     y
   }
 
@@ -82,18 +107,19 @@ object Main extends ZIOAppDefault {
     response1 <- ZIO.attempt(requests.get(s"$baseUrl/val/wxobs/all/$dataType/sitelist?key=$apiKey"))
     locations <- ZIO.fromEither(response1.text.fromJson[Locations])
     site = nearestSite(locations.Locations.Location, latitude, longitude)
-    _ <- Console.printLine(site)
     response2 <- ZIO.attempt(
       requests.get(s"$baseUrl/val/wxobs/all/$dataType/${site.id}?res=hourly&key=$apiKey")
     )
-    _ <- Console.printLine(response2.text)
     obs <- ZIO.fromEither(response2.text.fromJson[ObsWrapper])
     _ <- ZIO.foreachDiscard(obs.SiteRep.DV.Location.Period.flatMap(_.Rep).zipWithIndex) {
       case (x, y) =>
         Console.printLine(s"${y - 4}: $x")
     }
-    _ <- Console.printLine(minTemperature(obs.SiteRep.DV.Location))
-    _ <- Console.printLine("site,min,time,max,time")
+    min = minTemperature(obs.SiteRep.DV.Location)
+    max = maxTemperature(obs.SiteRep.DV.Location)
+    _ <- Console.printLine(
+      s"${site.name},${site.latitude},${site.longitude},${site.elevation},${min.temperature},${min.time},${max.temperature},${max.time}"
+    )
   } yield ()
 
   override def run: ZIO[Any, Any, Unit] = program
