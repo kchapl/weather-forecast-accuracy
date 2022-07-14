@@ -3,6 +3,7 @@ package weather
 import zio._
 import zio.json._
 
+import java.time._
 import scala.math._
 
 object Main extends ZIOAppDefault {
@@ -16,11 +17,14 @@ object Main extends ZIOAppDefault {
 
   private case class ObsParam(name: String, units: String, `$`: String)
   private case class ObsParams(Param: Seq[ObsParam])
-  private case class ObsPeriod(`type`: String)
-  private case class ObsLocation(i: String, Period: Seq[ObsPeriod])
-  private case class ObsData(dataDate: String, Location: ObsLocation)
+  private case class ObsMetric(T: String)
+  private case class ObsPeriod(`type`: String, value: String, Rep: Seq[ObsMetric])
+  private case class ObsLocation(Period: Seq[ObsPeriod])
+  private case class ObsData(Location: ObsLocation)
   private case class Obs(Wx: ObsParams, DV: ObsData)
   private case class ObsWrapper(SiteRep: Obs)
+
+  private case class TimeTemperature(time: OffsetDateTime, temperature: Double)
 
   private implicit val siteDecoder: JsonDecoder[Site] = DeriveJsonDecoder.gen[Site]
   private implicit val locationDecoder: JsonDecoder[Location] = DeriveJsonDecoder.gen[Location]
@@ -28,6 +32,7 @@ object Main extends ZIOAppDefault {
 
   private implicit val obsParamDecoder: JsonDecoder[ObsParam] = DeriveJsonDecoder.gen[ObsParam]
   private implicit val obsParamsDecoder: JsonDecoder[ObsParams] = DeriveJsonDecoder.gen[ObsParams]
+  private implicit val obsMetricDecoder: JsonDecoder[ObsMetric] = DeriveJsonDecoder.gen[ObsMetric]
   private implicit val obsPeriodDecoder: JsonDecoder[ObsPeriod] = DeriveJsonDecoder.gen[ObsPeriod]
   private implicit val obsLocationDecoder: JsonDecoder[ObsLocation] =
     DeriveJsonDecoder.gen[ObsLocation]
@@ -48,6 +53,23 @@ object Main extends ZIOAppDefault {
       distance(site.latitude.toDouble, site.longitude.toDouble, latitude, longitude)
     )
 
+  private def minTemperature(offset: Int)(period: ObsPeriod) = {
+    val x = period.Rep.zipWithIndex.minBy { case (y, _) => y.T.toDouble }
+    val r = LocalDate.parse(period.value.stripSuffix("Z"))
+    val t = LocalTime.of(x._2 + offset, 0)
+    TimeTemperature(OffsetDateTime.of(r, t, ZoneOffset.UTC), x._1.T.toDouble)
+  }
+
+  private def minTemperature(location: ObsLocation): TimeTemperature = {
+    val yst = location.Period.head
+    val ystm = minTemperature(24 - yst.Rep.length)(yst)
+    val tod = location.Period.last
+    val todm = minTemperature(0)(tod)
+    val x = Seq(ystm, todm)
+    val y = x.minBy(u => u.temperature)
+    y
+  }
+
   private def env(name: String) = for {
     optValue <- System.env(name)
     value <- ZIO.fromOption(optValue).orElseFail(new RuntimeException(s"No $name in env"))
@@ -66,7 +88,11 @@ object Main extends ZIOAppDefault {
     )
     _ <- Console.printLine(response2.text)
     obs <- ZIO.fromEither(response2.text.fromJson[ObsWrapper])
-    _ <- Console.printLine(obs)
+    _ <- ZIO.foreachDiscard(obs.SiteRep.DV.Location.Period.flatMap(_.Rep).zipWithIndex) {
+      case (x, y) =>
+        Console.printLine(s"${y - 4}: $x")
+    }
+    _ <- Console.printLine(minTemperature(obs.SiteRep.DV.Location))
     _ <- Console.printLine("site,min,time,max,time")
   } yield ()
 
