@@ -6,7 +6,7 @@ import zio.json._
 import java.time._
 import scala.math._
 
-object Main extends ZIOAppDefault {
+object Main {
 
   private val baseUrl = "http://datapoint.metoffice.gov.uk/public/data"
   private val dataType = "json"
@@ -100,7 +100,7 @@ object Main extends ZIOAppDefault {
     value <- ZIO.fromOption(optValue).orElseFail(new RuntimeException(s"No $name in env"))
   } yield value
 
-  private def program = for {
+  def program: ZIO[Any, Serializable, String] = for {
     apiKey <- env("API_KEY")
     latitude <- env("LATITUDE").map(_.toDouble)
     longitude <- env("LONGITUDE").map(_.toDouble)
@@ -117,10 +117,5 @@ object Main extends ZIOAppDefault {
     }
     min = minTemperature(obs.SiteRep.DV.Location)
     max = maxTemperature(obs.SiteRep.DV.Location)
-    _ <- Console.printLine(
-      s"${site.name},${site.latitude},${site.longitude},${site.elevation},${min.temperature},${min.time},${max.temperature},${max.time}"
-    )
-  } yield ()
-
-  override def run: ZIO[Any, Any, Unit] = program
+  } yield s"${site.name},${site.latitude},${site.longitude},${site.elevation},${min.temperature},${min.time},${max.temperature},${max.time}"
 }
