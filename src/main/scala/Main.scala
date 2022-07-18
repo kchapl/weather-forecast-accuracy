@@ -81,8 +81,7 @@ object Main {
     val tod = location.Period.last
     val todm = minTemperature(0)(tod)
     val x = Seq(ystm, todm)
-    val y = x.reverse.minBy(u => u.temperature)
-    y
+    x.reverse.minBy(_.temperature)
   }
 
   private def maxTemperature(location: ObsLocation): TimeTemperature = {
@@ -91,11 +90,10 @@ object Main {
     val tod = location.Period.last
     val todm = maxTemperature(0)(tod)
     val x = Seq(ystm, todm)
-    val y = x.reverse.maxBy(u => u.temperature)
-    y
+    x.reverse.maxBy(_.temperature)
   }
 
-  private def env(name: String) = for {
+  def env(name: String): ZIO[Any, RuntimeException, String] = for {
     optValue <- System.env(name)
     value <- ZIO.fromOption(optValue).orElseFail(new RuntimeException(s"No $name in env"))
   } yield value
