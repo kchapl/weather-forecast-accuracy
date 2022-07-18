@@ -5,10 +5,10 @@ ThisBuild / scalaVersion := "2.13.8"
 lazy val root = (project in file("."))
   .settings(
     name := "WeatherForecastAccuracy",
-    idePackagePrefix := Some("weather"),
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % "2.0.0",
       "dev.zio" %% "zio-json" % "0.3.0-RC10",
       "com.lihaoyi" %% "requests" % "0.7.1"
     )
   )
+  .enablePlugins(JavaAppPackaging)

@@ -1,1 +1,1 @@
-web: target/universal/stage/bin/booklet -p $PORT
+web: target/universal/stage/bin/weatherforecastaccuracy -p $PORT
