@@ -1,8 +1,7 @@
 package weather
 
-import Main.env
-
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+import com.sun.net.httpserver.HttpServer
+import weather.Main.env
 import zio._
 
 import java.net.InetSocketAddress
@@ -26,32 +25,11 @@ object Main2 extends ZIOAppDefault {
   }
 
   private def program = ZIO.scoped(for {
-    webHook <- createWebHook
     port <- env("PORT").map(_.toInt)
+    webHook <- createWebHook
     _ <- ZIO.acquireRelease(startServer(port, webHook))(server => ZIO.succeed(server.stop(0)))
-    _ <- ZIO.sleep(Duration.fromSeconds(30))
+    _ <- Console.readLine
   } yield ())
 
   override def run: ZIO[Any, Any, Any] = program
-}
-
-class RootHandler(webHook: String) extends HttpHandler {
-
-  private def grabWebHook = for {
-    _ <- Console.printLine(s"Making call out: [$webHook]")
-    _ <- ZIO.attempt(requests.get(webHook))
-  } yield ()
-
-  private def sendResponse(exchange: HttpExchange) = ZIO.attempt {
-    exchange.sendResponseHeaders(204, -1)
-  }
-  private def handleInternal(exchange: HttpExchange): Task[Unit] = for {
-    _ <- grabWebHook
-    _ <- sendResponse(exchange)
-  } yield ()
-
-  override def handle(exchange: HttpExchange): Unit =
-    Unsafe.unsafe(implicit u =>
-      Runtime.default.unsafe.run(handleInternal(exchange)).getOrThrowFiberFailure
-    )
 }
