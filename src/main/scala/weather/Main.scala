@@ -11,41 +11,33 @@ object Main {
   private val baseUrl = "http://datapoint.metoffice.gov.uk/public/data"
   private val dataType = "json"
 
-  private case class Site(
-      id: String,
-      name: String,
-      latitude: String,
-      longitude: String,
-      elevation: String
-  )
-  private case class Location(Location: Seq[Site])
-  private case class Locations(Locations: Location)
+  case class Site(id: String, name: String, latitude: String, longitude: String, elevation: String)
+  case class Location(Location: Seq[Site])
+  case class Locations(Locations: Location)
 
-  private case class ObsParam(name: String, units: String, `$`: String)
-  private case class ObsParams(Param: Seq[ObsParam])
-  private case class ObsMetric(T: String)
-  private case class ObsPeriod(`type`: String, value: String, Rep: Seq[ObsMetric])
-  private case class ObsLocation(Period: Seq[ObsPeriod])
-  private case class ObsData(Location: ObsLocation)
-  private case class Obs(Wx: ObsParams, DV: ObsData)
-  private case class ObsWrapper(SiteRep: Obs)
+  case class ObsParam(name: String, units: String, `$`: String)
+  case class ObsParams(Param: Seq[ObsParam])
+  case class ObsMetric(T: String)
+  case class ObsPeriod(`type`: String, value: String, Rep: Seq[ObsMetric])
+  case class ObsLocation(Period: Seq[ObsPeriod])
+  case class ObsData(Location: ObsLocation)
+  case class Obs(Wx: ObsParams, DV: ObsData)
+  case class ObsWrapper(SiteRep: Obs)
 
-  private case class TimeTemperature(time: OffsetDateTime, temperature: Double)
+  case class TimeTemperature(time: OffsetDateTime, temperature: Double)
 
-  private implicit val siteDecoder: JsonDecoder[Site] = DeriveJsonDecoder.gen[Site]
-  private implicit val locationDecoder: JsonDecoder[Location] = DeriveJsonDecoder.gen[Location]
-  private implicit val locationsDecoder: JsonDecoder[Locations] = DeriveJsonDecoder.gen[Locations]
+  implicit val siteDecoder: JsonDecoder[Site] = DeriveJsonDecoder.gen[Site]
+  implicit val locationDecoder: JsonDecoder[Location] = DeriveJsonDecoder.gen[Location]
+  implicit val locationsDecoder: JsonDecoder[Locations] = DeriveJsonDecoder.gen[Locations]
 
-  private implicit val obsParamDecoder: JsonDecoder[ObsParam] = DeriveJsonDecoder.gen[ObsParam]
-  private implicit val obsParamsDecoder: JsonDecoder[ObsParams] = DeriveJsonDecoder.gen[ObsParams]
-  private implicit val obsMetricDecoder: JsonDecoder[ObsMetric] = DeriveJsonDecoder.gen[ObsMetric]
-  private implicit val obsPeriodDecoder: JsonDecoder[ObsPeriod] = DeriveJsonDecoder.gen[ObsPeriod]
-  private implicit val obsLocationDecoder: JsonDecoder[ObsLocation] =
-    DeriveJsonDecoder.gen[ObsLocation]
-  private implicit val obsDataDecoder: JsonDecoder[ObsData] = DeriveJsonDecoder.gen[ObsData]
-  private implicit val obsDecoder: JsonDecoder[Obs] = DeriveJsonDecoder.gen[Obs]
-  private implicit val obsWrapperDecoder: JsonDecoder[ObsWrapper] =
-    DeriveJsonDecoder.gen[ObsWrapper]
+  implicit val obsParamDecoder: JsonDecoder[ObsParam] = DeriveJsonDecoder.gen[ObsParam]
+  implicit val obsParamsDecoder: JsonDecoder[ObsParams] = DeriveJsonDecoder.gen[ObsParams]
+  implicit val obsMetricDecoder: JsonDecoder[ObsMetric] = DeriveJsonDecoder.gen[ObsMetric]
+  implicit val obsPeriodDecoder: JsonDecoder[ObsPeriod] = DeriveJsonDecoder.gen[ObsPeriod]
+  implicit val obsLocationDecoder: JsonDecoder[ObsLocation] = DeriveJsonDecoder.gen[ObsLocation]
+  implicit val obsDataDecoder: JsonDecoder[ObsData] = DeriveJsonDecoder.gen[ObsData]
+  implicit val obsDecoder: JsonDecoder[Obs] = DeriveJsonDecoder.gen[Obs]
+  implicit val obsWrapperDecoder: JsonDecoder[ObsWrapper] = DeriveJsonDecoder.gen[ObsWrapper]
 
   private def distance(
       fromLatitude: Double,
@@ -98,17 +90,21 @@ object Main {
     value <- ZIO.fromOption(optValue).orElseFail(new RuntimeException(s"No $name in env"))
   } yield value
 
-  def program: ZIO[Any, Serializable, String] = for {
+  def program: Task[String] = for {
     apiKey <- env("API_KEY")
     latitude <- env("LATITUDE").map(_.toDouble)
     longitude <- env("LONGITUDE").map(_.toDouble)
     response1 <- ZIO.attempt(requests.get(s"$baseUrl/val/wxobs/all/$dataType/sitelist?key=$apiKey"))
-    locations <- ZIO.fromEither(response1.text.fromJson[Locations])
+    locations <- ZIO
+      .fromEither(response1.text().fromJson[Locations])
+      .mapError(failure => new RuntimeException(s"Cannot parse [${response1.text()}]: $failure"))
     site = nearestSite(locations.Locations.Location, latitude, longitude)
     response2 <- ZIO.attempt(
       requests.get(s"$baseUrl/val/wxobs/all/$dataType/${site.id}?res=hourly&key=$apiKey")
     )
-    obs <- ZIO.fromEither(response2.text.fromJson[ObsWrapper])
+    obs <- ZIO
+      .fromEither(response2.text().fromJson[ObsWrapper])
+      .mapError(failure => new RuntimeException(s"Cannot parse [${response1.text()}]: $failure"))
     _ <- ZIO.foreachDiscard(obs.SiteRep.DV.Location.Period.flatMap(_.Rep).zipWithIndex) {
       case (x, y) =>
         Console.printLine(s"${y - 4}: $x")
