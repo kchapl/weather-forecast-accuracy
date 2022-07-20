@@ -60,6 +60,7 @@ object Main {
   def program: RIO[MetOffice, String] = for {
     latitude <- env("LATITUDE").map(_.toDouble)
     longitude <- env("LONGITUDE").map(_.toDouble)
+    now <- zio.Clock.currentDateTime
     locations <- MetOffice.fetchSiteList()
     site = nearestSite(locations.Locations.Location, latitude, longitude)
     obs <- MetOffice.fetchSiteObservations(site.id)
@@ -69,5 +70,15 @@ object Main {
     }
     min = minTemperature(obs.SiteRep.DV.Location)
     max = maxTemperature(obs.SiteRep.DV.Location)
-  } yield s"${site.name},${site.latitude},${site.longitude},${site.elevation},${min.temperature},${min.time},${max.temperature},${max.time}"
+  } yield Seq(
+    now,
+    site.name,
+    site.latitude,
+    site.longitude,
+    site.elevation,
+    min.temperature,
+    min.time,
+    max.temperature,
+    max.time
+  ).mkString(",")
 }
