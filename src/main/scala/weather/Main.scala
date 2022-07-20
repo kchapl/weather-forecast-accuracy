@@ -1,16 +1,13 @@
 package weather
 
 import weather.Observation._
+import weather.Utils.env
 import zio._
-import zio.json._
 
 import java.time._
 import scala.math._
 
 object Main {
-
-  private val baseUrl = "http://datapoint.metoffice.gov.uk/public/data"
-  private val dataType = "json"
 
   case class TimeTemperature(time: OffsetDateTime, temperature: Double)
 
@@ -60,26 +57,12 @@ object Main {
     x.reverse.maxBy(_.temperature)
   }
 
-  def env(name: String): ZIO[Any, RuntimeException, String] = for {
-    optValue <- System.env(name)
-    value <- ZIO.fromOption(optValue).orElseFail(new RuntimeException(s"No $name in env"))
-  } yield value
-
-  def program: Task[String] = for {
-    apiKey <- env("API_KEY")
+  def program: RIO[MetOffice, String] = for {
     latitude <- env("LATITUDE").map(_.toDouble)
     longitude <- env("LONGITUDE").map(_.toDouble)
-    response1 <- ZIO.attempt(requests.get(s"$baseUrl/val/wxobs/all/$dataType/sitelist?key=$apiKey"))
-    locations <- ZIO
-      .fromEither(response1.text().fromJson[Locations])
-      .mapError(failure => new RuntimeException(s"Cannot parse [${response1.text()}]: $failure"))
+    locations <- MetOffice.fetchSiteList()
     site = nearestSite(locations.Locations.Location, latitude, longitude)
-    response2 <- ZIO.attempt(
-      requests.get(s"$baseUrl/val/wxobs/all/$dataType/${site.id}?res=hourly&key=$apiKey")
-    )
-    obs <- ZIO
-      .fromEither(response2.text().fromJson[ObsWrapper])
-      .mapError(failure => new RuntimeException(s"Cannot parse [${response1.text()}]: $failure"))
+    obs <- MetOffice.fetchSiteObservations(site.id)
     _ <- ZIO.foreachDiscard(obs.SiteRep.DV.Location.Period.flatMap(_.Rep).zipWithIndex) {
       case (x, y) =>
         Console.printLine(s"${y - 4}: $x")

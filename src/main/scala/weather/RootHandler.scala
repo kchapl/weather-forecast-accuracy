@@ -20,11 +20,11 @@ class RootHandler(webHookApiKey: String) extends HttpHandler {
   private def sendResponse(exchange: HttpExchange) = ZIO.attempt {
     exchange.sendResponseHeaders(204, -1)
   }
-  private def handleInternal(exchange: HttpExchange): Task[Unit] = for {
+  private def handleInternal(exchange: HttpExchange): Task[Unit] = (for {
     webHook <- createWebHook
     _ <- grabWebHook(webHook)
     _ <- sendResponse(exchange)
-  } yield ()
+  } yield ()).provide(MetOfficeLive.layer)
 
   override def handle(exchange: HttpExchange): Unit =
     Unsafe.unsafe(implicit u =>

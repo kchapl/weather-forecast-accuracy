@@ -1,7 +1,7 @@
 package weather
 
 import com.sun.net.httpserver.HttpServer
-import weather.Main.env
+import weather.Utils.env
 import zio._
 
 import java.net.InetSocketAddress
