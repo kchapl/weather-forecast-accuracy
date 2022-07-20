@@ -1,5 +1,6 @@
 package weather
 
+import weather.Observation._
 import zio._
 import zio.json._
 
@@ -11,33 +12,7 @@ object Main {
   private val baseUrl = "http://datapoint.metoffice.gov.uk/public/data"
   private val dataType = "json"
 
-  case class Site(id: String, name: String, latitude: String, longitude: String, elevation: String)
-  case class Location(Location: Seq[Site])
-  case class Locations(Locations: Location)
-
-  case class ObsParam(name: String, units: String, `$`: String)
-  case class ObsParams(Param: Seq[ObsParam])
-  case class ObsMetric(T: String)
-  case class ObsPeriod(`type`: String, value: String, Rep: Seq[ObsMetric])
-  case class ObsLocation(Period: Seq[ObsPeriod])
-  case class ObsData(Location: ObsLocation)
-  case class Obs(Wx: ObsParams, DV: ObsData)
-  case class ObsWrapper(SiteRep: Obs)
-
   case class TimeTemperature(time: OffsetDateTime, temperature: Double)
-
-  implicit val siteDecoder: JsonDecoder[Site] = DeriveJsonDecoder.gen[Site]
-  implicit val locationDecoder: JsonDecoder[Location] = DeriveJsonDecoder.gen[Location]
-  implicit val locationsDecoder: JsonDecoder[Locations] = DeriveJsonDecoder.gen[Locations]
-
-  implicit val obsParamDecoder: JsonDecoder[ObsParam] = DeriveJsonDecoder.gen[ObsParam]
-  implicit val obsParamsDecoder: JsonDecoder[ObsParams] = DeriveJsonDecoder.gen[ObsParams]
-  implicit val obsMetricDecoder: JsonDecoder[ObsMetric] = DeriveJsonDecoder.gen[ObsMetric]
-  implicit val obsPeriodDecoder: JsonDecoder[ObsPeriod] = DeriveJsonDecoder.gen[ObsPeriod]
-  implicit val obsLocationDecoder: JsonDecoder[ObsLocation] = DeriveJsonDecoder.gen[ObsLocation]
-  implicit val obsDataDecoder: JsonDecoder[ObsData] = DeriveJsonDecoder.gen[ObsData]
-  implicit val obsDecoder: JsonDecoder[Obs] = DeriveJsonDecoder.gen[Obs]
-  implicit val obsWrapperDecoder: JsonDecoder[ObsWrapper] = DeriveJsonDecoder.gen[ObsWrapper]
 
   private def distance(
       fromLatitude: Double,
