@@ -1,45 +1,28 @@
 package weather
 
-import weather.Observation._
+import com.sun.net.httpserver.HttpServer
 import weather.Utils.env
 import zio._
 
-import scala.math._
+import java.net.InetSocketAddress
 
-object Main {
+// See https://github.com/softwaremill/simple-http-server/blob/master/src/main/scala/com/softwaremill/httpserver/SimpleHttpServer.scala
+object Main extends ZIOAppDefault {
 
-  private def distance(
-      fromLatitude: Double,
-      fromLongitude: Double,
-      toLatitude: Double,
-      toLongitude: Double
-  ) = sqrt(pow(abs(toLongitude - fromLongitude), 2) + pow(abs(toLatitude - fromLatitude), 2))
+  private def startServer(port: Int, webHookApiKey: String) = for {
+    server <- ZIO.attempt(HttpServer.create(new InetSocketAddress(port), 0))
+    _ <- ZIO.attempt(server.createContext("/", new RootHandler(webHookApiKey)))
+    _ <- ZIO.attempt(server.setExecutor(null))
+    _ <- ZIO.attempt(server.start())
+  } yield server
 
-  private def nearestSite(sites: Seq[Site], latitude: Double, longitude: Double) =
-    sites.minBy(site =>
-      distance(site.latitude.toDouble, site.longitude.toDouble, latitude, longitude)
-    )
+  private def program = ZIO.scoped(for {
+    port <- env("PORT").map(_.toInt)
+    webHookApiKey <- env("WEB_HOOK_API_KEY")
+    _ <- startServer(port, webHookApiKey)
+    _ <- Console.printLine(s"Server started on port $port ...")
+    _ <- ZIO.never
+  } yield ())
 
-  def program: RIO[MetOffice, String] = for {
-    latitude <- env("LATITUDE").map(_.toDouble)
-    longitude <- env("LONGITUDE").map(_.toDouble)
-    now <- zio.Clock.currentDateTime
-    locations <- MetOffice.fetchSiteList()
-    site = nearestSite(locations.Locations.Location, latitude, longitude)
-    obs <- MetOffice.fetchSiteObservations(site.id)
-    tts = TimeTemperature.temperatures(now, obs.SiteRep.DV.Location)
-    _ <- ZIO.foreachDiscard(tts)(tt => Console.printLine(s"${tt.time}: ${tt.temperature}"))
-    min = tts.minBy(_.temperature)
-    max = tts.maxBy(_.temperature)
-  } yield Seq(
-    now,
-    site.name,
-    site.latitude,
-    site.longitude,
-    site.elevation,
-    min.temperature,
-    min.time,
-    max.temperature,
-    max.time
-  ).mkString(",")
+  override def run: ZIO[Any, Any, Any] = program
 }
