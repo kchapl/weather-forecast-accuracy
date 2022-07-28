@@ -7,7 +7,7 @@ import zio._
 class RootHandler(webHookApiKey: String) extends HttpHandler {
 
   private val createWebHook = for {
-    weatherReport <- Main.program.map(_.replace(",", "|||"))
+    weatherReport <- WeatherReport.buildWeatherReport.map(_.replace(",", "|||"))
     webHook =
       s"https://maker.ifttt.com/trigger/weather_reading/with/key/$webHookApiKey?value1=$weatherReport&value2=&value3="
   } yield webHook
