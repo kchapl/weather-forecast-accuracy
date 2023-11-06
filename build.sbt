@@ -5,7 +5,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "WeatherForecastAccuracy",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % "2.0.18",
+      "dev.zio" %% "zio" % "2.0.19",
       "dev.zio" %% "zio-json" % "0.6.2",
       "com.lihaoyi" %% "requests" % "0.8.0"
     )
