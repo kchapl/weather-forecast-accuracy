@@ -7,7 +7,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % "2.0.21",
       "dev.zio" %% "zio-json" % "0.6.2",
-      "com.lihaoyi" %% "requests" % "0.8.0"
+      "com.lihaoyi" %% "requests" % "0.8.2"
     )
   )
   .enablePlugins(JavaAppPackaging)
