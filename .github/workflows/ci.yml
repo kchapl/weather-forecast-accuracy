@@ -12,10 +12,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v7.0.1
 
-      - name: Set up Scala
-        uses: olafurpg/setup-scala@v14
+      - name: Set up JDK
+        uses: actions/setup-java@v6.1.0
         with:
-          java-version: adopt@1.11
+          distribution: temurin
+          java-version: '17'
 
       - name: Run SBT tasks
         run: >
@@ -23,4 +24,3 @@ jobs:
           scalafmtCheckAll
           scalafmtSbtCheck
           test
-          
