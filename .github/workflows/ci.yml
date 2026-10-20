@@ -18,6 +18,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up sbt
+        uses: sbt/setup-sbt@v1.5.12
+
       - name: Run SBT tasks
         run: >
           sbt
