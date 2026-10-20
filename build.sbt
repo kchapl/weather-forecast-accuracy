@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "3.8.1"
-ThisBuild / scalacOptions ++= Seq("-unchecked", "-deprecation", "-Wunused", "-Werror")
+ThisBuild / scalacOptions ++= Seq("-unchecked", "-deprecation", "-Wunused:all", "-Werror")
 
 lazy val root = (project in file("."))
   .settings(
