@@ -22,7 +22,7 @@ jobs:
           java-version: '17'
 
       - name: Set up sbt
-        uses: sbt/setup-sbt@v1.5.12
+        uses: sbt/setup-sbt@v1.5.13
 
       - name: Run SBT tasks
         run: >
